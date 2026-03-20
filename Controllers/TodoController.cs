@@ -1,63 +1,61 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using test_ai.Data;
 using test_ai.Models;
 
 namespace test_ai.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class TodoController : ControllerBase
+public class TodoController(AppDbContext db) : ControllerBase
 {
-    private static readonly List<TodoItem> _todos =
-    [
-        new TodoItem { Id = 1, Title = "Buy groceries", IsCompleted = false },
-        new TodoItem { Id = 2, Title = "Read a book", IsCompleted = true },
-        new TodoItem { Id = 3, Title = "Write some code", IsCompleted = false },
-    ];
-
     [HttpGet]
     [ProducesResponseType<IEnumerable<TodoItem>>(StatusCodes.Status200OK)]
-    public IEnumerable<TodoItem> GetAll() => _todos;
+    public async Task<IEnumerable<TodoItem>> GetAll() =>
+        await db.Todos.ToListAsync();
 
     [HttpGet("{id:int}")]
     [ProducesResponseType<TodoItem>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetById(int id)
+    public async Task<IActionResult> GetById(int id)
     {
-        var item = _todos.FirstOrDefault(t => t.Id == id);
+        var item = await db.Todos.FindAsync(id);
         return item is null ? NotFound() : Ok(item);
     }
 
     [HttpPost]
     [ProducesResponseType<TodoItem>(StatusCodes.Status201Created)]
-    public IActionResult Create(TodoItem item)
+    public async Task<IActionResult> Create(TodoItem item)
     {
-        item.Id = _todos.Count > 0 ? _todos.Max(t => t.Id) + 1 : 1;
-        _todos.Add(item);
+        db.Todos.Add(item);
+        await db.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
     }
 
     [HttpPut("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult Update(int id, TodoItem updated)
+    public async Task<IActionResult> Update(int id, TodoItem updated)
     {
-        var item = _todos.FirstOrDefault(t => t.Id == id);
+        var item = await db.Todos.FindAsync(id);
         if (item is null) return NotFound();
 
         item.Title = updated.Title;
         item.IsCompleted = updated.IsCompleted;
+        await db.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var item = _todos.FirstOrDefault(t => t.Id == id);
+        var item = await db.Todos.FindAsync(id);
         if (item is null) return NotFound();
 
-        _todos.Remove(item);
+        db.Todos.Remove(item);
+        await db.SaveChangesAsync();
         return NoContent();
     }
 }
